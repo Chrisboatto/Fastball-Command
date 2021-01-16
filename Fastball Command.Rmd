@@ -1,0 +1,202 @@
+---
+title: "Fastball Command"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Fastball Command is a major thing that people look at when evaluating a pitcher. The pitch that is meant to be thrown in the strike zone the most is the fastball, both two seam and four seam. Pitchers that are able to command their fastball within the strike zone will allow their secondary pitches to be much more effective. It also allows for pitch tunneling with their offspeed. Being able to know where your fastball's trajectory consistently would allow a pitcher to then plan where to start their offspeeds to create the illusion of a fastball for every pitch. 
+
+# Through this data set I used the Random Forest multivariate model to develop a predictive score for each observation. The predictive attribute I used was 'Strikes' as I mentioned before that fastballs are mostly meant to be thrown in the strike zone. I decided to use the Random Forest model as I wanted the trees to grow simultaneuosly as opposed to Gradient Boosting where it grows each tree by itself and then takes the average of all trees. I feel that growing each tree simultaneuosly would give a better understanding of the predicted score than the average of each tree individually. I also didn't want to create only one tree using a Decision Tree model because it can be biased whereas using multiple trees (or and entire forest) would remove the bias issue.
+
+# The following are the packages needed to complete this assignment
+
+```{r}
+install.packages("readxl")
+install.packages("dplyr")
+install.packages("ggplot2")
+install.packages("randomForest")
+install.packages("pROC")
+install.packages("devtools")
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(randomForest)
+library(pROC)
+library(devtools)
+devtools::install_github('skinner927/reprtree')
+library(reprtree)
+```
+
+```{r}
+fastballcommand <- read_excel(file.choose())
+```
+
+# Checking the structure and summary of the fastballcommand data set we can see that there are four character attributes while the rest are numeric. We can also see that there are only seven NA values within the data set. Being that the NA values constitute 0.05% of the data set I chose to remove them. If the NA values were a major part of the data set I would have chose a different way to deal with the NA's; most likely I wold have set them to the average of their respective columns.
+
+```{r}
+str(fastballcommand)
+```
+
+```{r}
+summary(fastballcommand)
+```
+
+```{r}
+fastballcommand <- na.omit(fastballcommand)
+```
+
+# Here I check the amount of unique values there are within the PitcherID attribute of the data set. I wanted to know how many different pitchers there are in fastballcommand that way I could prepare accordingly for what comes later in the assignment. It is a little interesting that there are only 5 pitchers in this data set, they must have stayed pretty healthy!
+
+```{r}
+unique(fastballcommand$PitcherID)
+```
+# I created a Pie chart based off the PitcherID to show how often each pitcher pitches. In order to do this I had to change the PitcherID attribute breifly into a character but would immediately then change it later for the purpose of aggregation. The aggregate funct to finalize the data and recieve the end scores uses either; min, max, sum, or mean. If all five pitchers would have thrown roughly the same amount of pitches my FUN parameter would be different than if they didn't. Therefore the amount of pitches a pitcher throws tracked in this dataset would determine how I would aggregate later.
+
+```{r}
+fastballcommand$PitcherID <- as.character(fastballcommand$PitcherID)
+ap <- ggplot(fastballcommand, aes(x = "", y = PitcherID, fill = PitcherID)) + geom_bar(stat = "identity") + xlab("") + ylab("") + ggtitle("PitcherID Pie Chart")
+PitcherID_pie <- ap + coord_polar("y", start = 0)
+PitcherID_pie
+```
+
+```{r}
+fastballcommand$PitcherID <- as.numeric(fastballcommand$PitcherID)
+```
+
+# Notice the difference between this summary and the last one. No NA values and after the previous line is ran PitchID went back to being numeric.
+
+```{r}
+summary(fastballcommand)
+```
+
+# The boxplot below shows the inter quartile ranges along with the extremeties of the pitch parameters; Velocity, VerticalBreak, HorizontalBreak, PlateLocHeight, and PlateLocSide. There are no massive outliers within the data set which bodes well saying that it is pretty clean. Usually there is more cleaning needed to be done with data sets but this one was exceptional with only seven NA values.
+
+```{r}
+boxplot(fastballcommand[13:17], col = rainbow(5))
+```
+
+# The correlation matrix below shows how well certain attribute go together. The thicker and more blue a circle became the more positive the attributes are correlated and the same could be said but in red for negatively correlated attributes. Some of the attributes make sense such as Ball and Strike to AtBatPitchSequence as the majority of At Bats in the MLB have a count to them; not many batter consistently swing at the first pitch at put it into play. GamePitchSequence and Inning also are positively correlated which also makes sense as the deeper a pitcher goes in the game the more pitches he'd throw. Some things I found interesting are that PitcherID to Velocity and HorizontalBreak are more negatively correlated. This would make sense as every pitcher is different as some throw two seams causing more horizontal break than those who throw four seams. I'm glad to see that VerticalBreak has almost no correlation as if it did I would be worried due to the fact that fastballs are not supposed to break up and down; those are more for off speed pitches.
+
+```{r}
+fastballcommand_cor <- select(fastballcommand, -c(GameID, PitcherHand, BatSide, PitchType))
+cor_FB <- cor(fastballcommand_cor)
+corrplot(cor_FB, type = "upper", order = 'hclust', tl.col = "black")
+```
+
+# In order to properly perform the analysis I split my data set into the train and test sets. This would allow me to see how well the model would do at predicting for both sets.
+
+```{r}
+set.seed(19153)
+train <- sample(nrow(fastballcommand), 0.75*nrow(fastballcommand), replace = FALSE)
+command_train <- fastballcommand[train,]
+command_test <- fastballcommand[-train,]
+```
+
+# I used this as my base model to get an understanding of the importance of each attribute. Importance function in the randomForest package shows how much each attribute will contribute to the model. If an attribute has a high level of importance that means it would take over the model when determiining a prediction rendering all other attributes obsolete. To determine this I created my model using the Strikes attirbute as my dependent variable and all other attributes as the independent. Strikes is described as 'Strikes prior to the pitch' which is exactly what we would be looking for. As previously mentioned fastballs are the only pitch that are meant to be thrown mostly in the strike zone so using 'Strikes' as the attribute would make sense in this scenario as 'Balls' outcome would be counterintuitive. 
+
+```{r}
+command_base_model <- randomForest(Strikes ~ ., data = command_train, ntree = 50)
+```
+
+# The below two charts show what attributes dominated this model. As you can see 'AtBatPitchSequence' and 'Balls' was way ahead of every other attribute. This makes sense as a strike is an outcome of a pitch within the At Bat. Most at bats have a count when they are completed thus making 'AtBatPitchSequence' a prominent factor for 'Strikes' is understandable. Also the attribute 'Balls' is of high importance because of it being the only other option to a strike. There's only two options in baseball when a pitch is thrown, strike and ball; even if the batter makes contact it is considered a strike because of the swing. 
+
+```{r}
+commandImp <- importance(command_base_model)
+commandImp
+```
+
+
+```{r}
+commandImp <- as.data.frame(commandImp)
+ggplot(commandImp, aes(IncNodePurity, row.names(commandImp))) + 
+  geom_bar(stat = "identity", width = 0.1, fill = "blue") + 
+  geom_point(shape = 21, size = 3, colour = "blue", fill = "red", stroke = 2) + 
+  labs(title = "Fastball Command Variable Importance", x = "Importance", y = "Variable")
+```
+
+# I removed 'Balls' and 'AtBatPitchSequence' (due to their high importance scores), 'Inning', 'PAofInning' and all of the character attributes except GameID . I decided to remove 'Inning' because the attribute 'GamePitchSequence' I thought gave me a good enough understanding of how far into the game a pitcher would go. Nowadays when looking at pitchers in game teams use pitch totals versus how many innings they have thrown. I left out 'PAofInning' also for the same reason as 'Inning' as if a batter is able to have consistently long at bats it drives the pitch count up early. Being that pitch count is the primary metric in use for pitchers' health and productivity within game I removed it. The reason I left GameID in the model is because a pitcher's fastball command could improve as the season goes on due to repitition or decrease with tiring. Being that GameID and GamePitchSequence go together in uniquely identifying each event I left it in to determine how a pitcher does getting into the "Dog Days" of summer throwing a lot of pitches. 
+
+# I set the maxnodes to eight because I wanted my decision tree depiction later to be concise as possible. A decision tree depiction can get messy if you do not specify parameters. This will become key later in this project.
+
+```{r}
+command_tuned_model <- randomForest(Strikes ~ Velocity + VerticalBreak + HorizontalBreak + PlateLocHeight + PlateLocSide + GamePitchSequence + GameID, data = command_train, ntree = 50, maxnodes = 8)
+```
+
+# Using the "response" method I predicted the scores using the model above based on the observations from thee train and test data sets. I used response because I wanted a a numerical result for each observation rather than it being assigned. I then added the predicted scores to their respective data sets as an additional attribute and renamed them for consistency. I bound both the train and test sets back together to create a fully data set with predictions
+
+```{r}
+command_pred_train <- predict(command_tuned_model, command_train, type = "response")
+command_pred_test <- predict(command_tuned_model, command_test, type = "response")
+```
+
+```{r}
+command_train <- cbind(command_train, command_pred_train)
+command_test <- cbind(command_test, command_pred_test)
+```
+
+```{r}
+names(command_train)[names(command_train) == "command_pred_train"] <- "command_pred"
+names(command_test)[names(command_test) == "command_pred_test"] <- "command_pred"
+```
+
+```{r}
+command_full <- rbind(command_train, command_test)
+```
+
+# The graph below shows how well the model ran regarding the error bias. At around 35 trees the error bias begins to flatline and level off. This means that the model worked well with 50 trees.
+
+```{r}
+plot(command_tuned_model, col = "red", main = "Fastball Command RF Model")
+```
+
+# The Receiver Operating Characteristic (ROC) Curve below shows how well the model performed at all the thresholds. The graph below shows that both the train (red line) and test (blue line) performed extremely well with no deviation.
+
+```{r}
+roc_test <- roc(ifelse(command_test$Strikes == "1", "1", "0"), as.numeric(command_test$command_pred))
+roc_train <- roc(ifelse(command_train$Strikes == "1", "1", "0"), as.numeric(command_train$command_pred))
+plot(roc_test, col = "blue", main = "Fastball Command ROC Graph")
+lines(roc_train, col = "red")
+```
+
+# I decided to recreate the importance chart to see the differences between the attributes in the model. It may look like a large discrepency but basing this off the first one above it is way more balanced thus no one attribute took over for the model.
+
+```{r}
+commandImp_tuned <- importance(command_tuned_model)
+commandImp_tuned
+commandImp_tuned <- as.data.frame(commandImp_tuned)
+ggplot(commandImp_tuned, aes(IncNodePurity, row.names(commandImp_tuned))) + 
+  geom_bar(stat = "identity", width = 0.1, fill = "blue") + 
+  geom_point(shape = 21, size = 5, colour = "blue", fill = "red", stroke = 3) + 
+  labs(title = "Fastball Command Variable Importance Tuned", x = "Importance", y = "Variable")
+```
+# The decision tree below is based off of the created reprtree package found created by skinner927, thanks Skinner! This allows a data analyst to create a decision tree from the random forest model he creates. The tree below is a depiction of the 50th tree in the "command_tuned_model". Remember when I mentioned the maxnodes? Without doing so this tree would have been extremely messy with every outcome as a result. Now because I tuned it to a max of eight the tree is much easier to read and understand. You can chose any tree from your model to depict; each tree will be slightly different however so do not fret if yours is different than mine if you chcose a different tree to depict. 
+
+```{r}
+reprtree:::plot.getTree(command_tuned_model, k = 50)
+```
+# I selected the two attributes from command_full that I would need to solve the problem.
+
+```{r}
+fastballcommand_final <- select(command_full, c(PitcherID, command_pred))
+```
+
+# Using the aggregate function I grouped the data together based off the PitcherID and then formed a summary based off the average of the scores to the amount of pitchers each pitcher threw. The pie chart came in handy because PitcherID 857 threw the vast majority of pitches in the data set. If I were to have used sum in the FUN factor it would have automatically gave him the highest score. Using mean I made it fair amongst all of the pitchers to gain a better understanding of which pitcher command his fastball the best. 
+
+# Question 1 Answer: The pitcher that commanded his fastball the best was PitcherID 857.
+
+```{r}
+fastballcommand_final_agg <- aggregate(command_pred ~ PitcherID, data = fastballcommand_final, FUN = mean)
+fastballcommand_final_agg <- rename(fastballcommand_final_agg, FC = command_pred)
+fastballcommand_final_agg
+```
+
+# Question 2 Answer: The metric I would apply to any pitcher would be the weighted fastball command + (wFRC+) metric I created below. Using the same formula of Weighted Runs Created + (wRC+) I applied it to the fasball command metric created above. It shows on a larger scale which pitcher is best at commanding his fastball where 100 is league average and above is better. This can apply across the board throughout the league much like wRC+ does.
+
+```{r}
+fastballcommand_final_agg <- mutate(fastballcommand_final_agg, 'wFC+' = (100*FC/mean(FC)))
+fastballcommand_final_agg
+```
+
