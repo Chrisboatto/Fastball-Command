@@ -13,3 +13,6 @@ With the fastballcommand.xlsx data set, I used the Random Forest multivariate mo
 The tree below is a depiction of the 100th tree in the “command_tuned_model”. It shows the flow in which the model made its decision to determine the predictive score of a strike. The model makes a binary decision at each node or parameter, “Yes” or “No”, which then leads to another and another until you reach a final predictive score grouping at the bottom.
 
 ![Image of Decision Tree](https://raw.githubusercontent.com/Chrisboatto/Fastball-Command/main/Decision%20Tree.png)
+
+
+If you're interested in the project, download the data set and run my RMD file. All graphs and results will show within the file. You will then be able to cross reference them to their respective graphs labeled as such in this repository
