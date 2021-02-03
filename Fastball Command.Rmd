@@ -127,7 +127,7 @@ ggplot(commandImp, aes(IncNodePurity, row.names(commandImp))) +
   labs(title = "Fastball Command Variable Importance", x = "Importance", y = "Variable")
 ```
 
-# The newest model below was created based off the importance of the last model and personal experience of the game. There are attributes that were included and omitted of the new model to obtain a better understanding of what pitcher is able to command his fastball the best. The following is the reasonings as to why each attribute was included and omitted with the attribute in '', the definition after the '-' and reasoning following the ':'. 
+# The newest model below was created based off the importance of the last model and personal experience of the game. There are attributes that were included and omitted of the new model to obtain a better understanding of what pitcher is able to command his fastball the best. The following is the reasonings as to why each attribute was included and omitted. 
 
 #   Attrributes Omitted
 
@@ -218,7 +218,7 @@ command_full <- rbind(command_train, command_test)
 plot(command_tuned_model, col = "red", main = "Fastball Command RF Model")
 ```
 
-# The Receiver Operating Characteristic (ROC) Curve below shows how well the model performed at all the thresholds. The graph below shows that both the train (red line) and test (blue line) performed extremely well with no deviation.
+# The Receiver Operating Characteristic (ROC) Curve below shows how well the model performed at all the thresholds. The graph below shows that both the train (red line) and test (blue line) performed along the diagonal line thus showing a 50/50 chance. I will have to improve on this model in the future.
 
 ```{r}
 roc_test <- roc(ifelse(command_test$Strikes == "1", "1", "0"), as.numeric(command_test$FC_pred))
