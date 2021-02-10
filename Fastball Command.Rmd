@@ -204,7 +204,7 @@ ggplot(commandImp, aes(IncNodePurity, row.names(commandImp))) +
 # I set the maxnodes to eight because I wanted my decision tree depiction later to be as concise as possible. A decision tree depiction can become cluttered if you do not specify the parameters. This will become key, later in this project.
 
 ```{r}
-command_tuned_model <- randomForest(Strike ~ Velocity + GamePitchSequence + Inning + AtBatPitchSequence + PAofInning + PitchType + YearID, data = command_train, ntree = 100, maxnodes = 8, nodesize = 4)
+command_tuned_model <- randomForest(Strike ~ Velocity + HorizontalBreak + VerticalBreak + GamePitchSequence + GameID + Inning + PAofInning, data = command_train, ntree = 100, maxnodes = 50)
 ```
 
 # With the "response" method I predicted the scores using the model above on the observations from the train and test data sets. I used "response" instead of "class" because I wanted a numerical result for each observation rather than a value being assigned. I then added the predicted scores to their respective data sets as an additional attribute and renamed them for consistency. I bound both the train and test sets back together to create a full data set with predictions.
@@ -237,8 +237,8 @@ plot(command_tuned_model, col = "red", main = "Fastball Command RF Model")
 # The Receiver Operating Characteristic (ROC) Curve below shows how well the model performed at all the thresholds. The graph below shows that both the train (red line) and test (blue line) performed along the diagonal line thus showing a 50/50 chance. I will have to improve on this model in the future.
 
 ```{r}
-roc_test <- roc(ifelse(command_test$Strikes == "1", "1", "0"), as.numeric(command_test$FC_pred))
-roc_train <- roc(ifelse(command_train$Strikes == "1", "1", "0"), as.numeric(command_train$FC_pred))
+roc_test <- roc(ifelse(command_test$Strike == "1", "1", "0"), as.numeric(command_test$FC_pred))
+roc_train <- roc(ifelse(command_train$Strike == "1", "1", "0"), as.numeric(command_train$FC_pred))
 plot(roc_test, col = "blue", main = "Fastball Command ROC Graph")
 lines(roc_train, col = "red")
 ```
