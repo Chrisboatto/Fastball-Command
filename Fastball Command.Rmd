@@ -51,6 +51,22 @@ summary(fastballcommand)
 
 ```{r}
 fastballcommand <- na.omit(fastballcommand)
+fastballcommand <- mutate(fastballcommand, Strike = case_when(PlateLocHeight > 1.75 & PlateLocHeight < 3.42 & PlateLocSide > -0.7083 & PlateLocSide < 0.7083 ~ 1))
+fastballcommand$Strike[is.na(fastballcommand$Strike)] <- 0
+```
+
+```{r}
+GameID <- c(1:283)
+GameID <- as.data.frame(GameID)
+GameID_unique <- as.data.frame(unique(fastballcommand$GameID))
+GameID <- cbind(GameID, GameID_unique)
+GameID <- rename(GameID, GameID_Number = GameID, GameID = 'unique(fastballcommand$GameID)')
+fastballcommand <- full_join(fastballcommand, GameID, by = "GameID")
+fastballcommand <- select(fastballcommand, -c(GameID))
+fastballcommand <- rename(fastballcommand, GameID = GameID_Number)
+fastballcommand$PitchType[fastballcommand$PitchType == "FA"] <- 1
+fastballcommand$PitchType[fastballcommand$PitchType == "SI"] <- 2
+fastballcommand$PitchType <- as.numeric(fastballcommand$PitchType)
 ```
 
 # This is used to check the amount of unique values there are within the PitcherID attribute of the data set. I performed this action to determine how many different pitchers there are in the fastballcommand.xlsx data set in preparation for another component of the assignment. It is a little interesting that there are only 5 pitchers in this data set, they must have stayed pretty healthy throughout the season!
@@ -108,7 +124,7 @@ command_test <- fastballcommand[-train,]
 # I used this as my base model to get an understanding of the importance of each attribute. The Importance function in the 'randomForest' package shows how much each attribute will contribute to the model. With a high level of importance an attribute would take over the model when determiining a prediction rendering all others obsolete. To determine this, I created my model using the 'Strikes' attirbute as my dependent variable and all other attributes as independent variables. The 'Strikes' attribute is described as 'Strikes prior to the pitch' which is exactly what would need to be determined. As previously mentioned, fastballs are the only pitch that are meant to be thrown mostly in the strike zone so using the 'Balls' outcome would be counterintuitive. Using other attributes would be impracticle. 
 
 ```{r}
-command_base_model <- randomForest(Strikes ~ ., data = command_train, ntree = 50)
+command_base_model <- randomForest(Strike ~ ., data = command_train, ntree = 50)
 ```
 
 # The below two charts show what attributes dominated this model. As you can see 'AtBatPitchSequence' and 'Balls' attributes were much further ahead of every other attribute. This makes sense as a strike is an outcome of a pitch within the At Bat. Also, the attribute 'Balls' is of high importance because of it being the only other option to a strike when a pitch is thrown. Even when a pitch is put in play or fouled off, it is tabulated as a strike because the batter swung.
@@ -155,6 +171,13 @@ ggplot(commandImp, aes(IncNodePurity, row.names(commandImp))) +
 #       'PitchType' - Pitch classification; 'FA' refers to fourseam fastball, while 'SI' refers to twoseam fastball: This is redundant as the pitch 
 #                     properties within the model will also determine if a pitch is a Two Seam or Four Seam.
 
+#       'PlateLocHeight' - Vertical pitch location in feet: This attribute was included as it is the result of the vertical pitch placement when the 
+#                          ball crosses the plate. The combination with 'HorizontalBreak' gives a complete understanding of where the ball crossed.
+
+#       PlateLocSide' - Horizontal pitch location in feet (positive = toward third base): This attribute was included as it is the result of the 
+#                       horizontal pitch placement when it crosses the plate. The combination with 'VerticalBreak' gives a complete understanding of 
+#                       where the ball crossed.
+
 #   Attributes Included
 
 #       'Inning' - Inning in which the event occurred: This was included in the model as speaking from experience, strikes in the later innings are 
@@ -178,17 +201,10 @@ ggplot(commandImp, aes(IncNodePurity, row.names(commandImp))) +
 #       'HorizontalBreak' - Horizontal break in inches (positive = toward third base): Similar to 'VerticalBreak' the more movement, the tougher it 
 #                           is to control the pitch.
 
-#       'PlateLocHeight' - Vertical pitch location in feet: This attribute was included as it is the result of the vertical pitch placement when the 
-#                          ball crosses the plate. The combination with 'HorizontalBreak' gives a complete understanding of where the ball crossed.
-
-#       PlateLocSide' - Horizontal pitch location in feet (positive = toward third base): This attribute was included as it is the result of the 
-#                       horizontal pitch placement when it crosses the plate. The combination with 'VerticalBreak' gives a complete understanding of 
-#                       where the ball crossed.
-
 # I set the maxnodes to eight because I wanted my decision tree depiction later to be as concise as possible. A decision tree depiction can become cluttered if you do not specify the parameters. This will become key, later in this project.
 
 ```{r}
-command_tuned_model <- randomForest(Strikes ~ Velocity + VerticalBreak + HorizontalBreak + PlateLocHeight + PlateLocSide + GamePitchSequence + GameID + Inning, data = command_train, ntree = 200, maxnodes = 8)
+command_tuned_model <- randomForest(Strike ~ Velocity + GamePitchSequence + Inning + AtBatPitchSequence + PAofInning + PitchType + YearID, data = command_train, ntree = 100, maxnodes = 8, nodesize = 4)
 ```
 
 # With the "response" method I predicted the scores using the model above on the observations from the train and test data sets. I used "response" instead of "class" because I wanted a numerical result for each observation rather than a value being assigned. I then added the predicted scores to their respective data sets as an additional attribute and renamed them for consistency. I bound both the train and test sets back together to create a full data set with predictions.
