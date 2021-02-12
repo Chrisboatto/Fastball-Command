@@ -69,6 +69,9 @@ fastballcommand <- rename(fastballcommand, GameID = GameID_Number)
 fastballcommand$PitchType[fastballcommand$PitchType == "FA"] <- 1
 fastballcommand$PitchType[fastballcommand$PitchType == "SI"] <- 2
 fastballcommand$PitchType <- as.numeric(fastballcommand$PitchType)
+fastballcommand$YearID <- as.numeric((as.factor(fastballcommand$YearID)))
+fastballcommand$PitcherHand <- as.numeric(as.factor(fastballcommand$PitcherHand))
+fastballcommand$BatSide <- as.numeric(as.factor(fastballcommand$BatSide))
 ```
 
 # This is used to check the amount of unique values there are within the PitcherID attribute of the data set. I performed this action to determine how many different pitchers there are in the fastballcommand.xlsx data set in preparation for another component of the assignment. It is a little interesting that there are only 5 pitchers in this data set, they must have stayed pretty healthy throughout the season!
@@ -206,7 +209,7 @@ ggplot(commandImp, aes(IncNodePurity, row.names(commandImp))) +
 # I set the maxnodes to eight because I wanted my decision tree depiction later to be as concise as possible. A decision tree depiction can become cluttered if you do not specify the parameters. This will become key, later in this project.
 
 ```{r}
-command_tuned_model <- randomForest(Strike ~ Velocity + HorizontalBreak + VerticalBreak + GamePitchSequence + GameID + Inning + PAofInning, data = command_train, ntree = 60, maxnodes = 250, nodesize = 5, mtry = 2)
+command_tuned_model <- randomForest(Strike ~ Velocity + HorizontalBreak + VerticalBreak + GamePitchSequence + GameID + Inning + PAofInning + AtBatPitchSequence + YearID + BatSide + PitcherHand + Balls + Strikes + PitcherID, data = command_train, ntree = 60, maxnodes = 20, nodesize = 5)
 ```
 
 # With the "response" method I predicted the scores using the model above on the observations from the train and test data sets. I used "response" instead of "class" because I wanted a numerical result for each observation rather than a value being assigned. I then added the predicted scores to their respective data sets as an additional attribute and renamed them for consistency. I bound both the train and test sets back together to create a full data set with predictions.
