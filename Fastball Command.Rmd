@@ -267,7 +267,7 @@ ggplot(commandImp_tuned, aes(IncNodePurity, row.names(commandImp_tuned))) +
 # I had previously commented on the maxnodes parameter being important due to clarity in this tree. Setting the maxnodes parameter to eight will create a depiction of eight result groupings. This allows for the tree to be much easier to read and understand. Without doing so this tree would have been extremely cluttered, with every outcome as a result.  You can chose any tree from your model to depict. Each tree will be slightly different. Therefore, choosing a different tree will result in different results. 
 
 ```{r}
-reprtree:::plot.getTree(command_tuned_model, k = 100)
+reprtree:::plot.getTree(command_tuned_model, k = 50)
 ```
 
 # I selected the two attributes from command_full that I would need to solve the problem of which pitcher commanded his fsatball the best.
