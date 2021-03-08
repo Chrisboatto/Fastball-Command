@@ -1,0 +1,171 @@
+The following are the packages needed to complete this assignment.
+
+require("readxl")
+require("dplyr")
+require("ggplot2")
+require("randomForest")
+require("pROC")
+require("devtools")
+require("corrplot")
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(randomForest)
+library(pROC)
+library(devtools)
+devtools::install_github('skinner927/reprtree')
+library(reprtree)
+library(corrplot)
+
+
+
+Reading in the data set
+
+fastballcommand <- read_excel("C:/Users/cboat/OneDrive/Documents/GitHub/Fastball-Command/fastballcommand.xlsx")
+
+
+
+Checking Structure, Summary and Omitting NA values
+
+str(fastballcommand)
+
+summary(fastballcommand)
+
+fastballcommand <- na.omit(fastballcommand)
+
+
+
+Checking Unique PitcherID
+
+unique(fastballcommand$PitcherID)
+
+
+
+PitcherID Pie Chart and conversions of PitcherID
+
+fastballcommand$PitcherID <- as.character(fastballcommand$PitcherID)
+ap <- ggplot(fastballcommand, aes(x = "", y = PitcherID, fill = PitcherID)) + geom_bar(stat = "identity") + xlab("") + ylab("") + ggtitle("PitcherID Pie Chart") + theme(axis.text = element_blank(), axis.ticks = element_blank(), panel.grid = element_blank())
+PitcherID_pie <- ap + coord_polar("y", start = 0) 
+PitcherID_pie
+
+fastballcommand$PitcherID <- as.numeric(fastballcommand$PitcherID)
+
+
+
+Recheck of Summary
+
+summary(fastballcommand)
+
+
+
+Creation of Boxplot
+
+boxplot(fastballcommand[13:17], col = rainbow(5), main = "Boxplot of Pitching Metrics", xlab = "Pitching Metrics", ylab = "Value")
+
+
+
+Correlation Matrix Creation
+
+fastballcommand_cor <- select(fastballcommand, -c(GameID, PitcherHand, BatSide, PitchType))
+cor_FB <- cor(fastballcommand_cor)
+corrplot(cor_FB, type = "upper", order = 'hclust', tl.col = "black")
+
+
+
+Train and Test Data Creation
+
+set.seed(19153)
+train <- sample(nrow(fastballcommand), 0.75*nrow(fastballcommand), replace = FALSE)
+command_train <- fastballcommand[train,]
+command_test <- fastballcommand[-train,]
+
+
+
+Base Random Forest Model Creation
+
+command_base_model <- randomForest(Strikes ~ ., data = command_train, ntree = 50)
+
+
+
+Variable Importance of Base Model and Graph
+
+commandImp <- importance(command_base_model)
+commandImp
+
+commandImp <- as.data.frame(commandImp)
+ggplot(commandImp, aes(IncNodePurity, row.names(commandImp))) + 
+  geom_bar(stat = "identity", width = 0.1, fill = "blue") + 
+  geom_point(shape = 21, size = 3, colour = "blue", fill = "red", stroke = 2) + 
+  labs(title = "Fastball Command Variable Importance", x = "Importance", y = "Variable")
+
+
+
+Random Forest Tuned
+
+command_tuned_model <- randomForest(Strikes ~ Velocity + VerticalBreak + HorizontalBreak + PlateLocHeight + PlateLocSide + GamePitchSequence + GameID + Inning, data = command_train, ntree = 200, maxnodes = 8)
+
+
+
+Predictions, Bindings and Renaming After Tuned Model
+
+command_pred_train <- predict(command_tuned_model, command_train, type = "response")
+command_pred_test <- predict(command_tuned_model, command_test, type = "response")
+command_train <- cbind(command_train, command_pred_train)
+command_test <- cbind(command_test, command_pred_test)
+names(command_train)[names(command_train) == "command_pred_train"] <- "FC_pred"
+names(command_test)[names(command_test) == "command_pred_test"] <- "FC_pred"
+command_full <- rbind(command_train, command_test)
+
+
+
+RF Model Plot
+
+plot(command_tuned_model, col = "red", main = "Fastball Command RF Model")
+
+
+
+ROC Chart Creation
+
+roc_test <- roc(ifelse(command_test$Strikes == "1", "1", "0"), as.numeric(command_test$FC_pred))
+## Setting levels: control = 0, case = 1
+## Setting direction: controls > cases
+roc_train <- roc(ifelse(command_train$Strikes == "1", "1", "0"), as.numeric(command_train$FC_pred))
+## Setting levels: control = 0, case = 1
+## Setting direction: controls < cases
+plot(roc_test, col = "blue", main = "Fastball Command ROC Graph")
+lines(roc_train, col = "red")
+
+
+
+Variable Importance Tuned and Graph
+
+commandImp_tuned <- importance(command_tuned_model)
+commandImp_tuned
+
+commandImp_tuned <- as.data.frame(commandImp_tuned)
+ggplot(commandImp_tuned, aes(IncNodePurity, row.names(commandImp_tuned))) + 
+  geom_bar(stat = "identity", width = 0.1, fill = "blue") + 
+  geom_point(shape = 21, size = 5, colour = "blue", fill = "red", stroke = 3) + 
+  labs(title = "Fastball Command Variable Importance Tuned", x = "Importance", y = "Variable")
+
+
+
+Creation of Decision Tree 100
+
+reprtree:::plot.getTree(command_tuned_model, k = 100)
+
+
+
+Selection and Aggregation of Final Data Set and Renaming to FC
+
+fastballcommand_final <- select(command_full, c(PitcherID, FC_pred))
+fastballcommand_final_agg <- aggregate(FC_pred ~ PitcherID, data = fastballcommand_final, FUN = mean)
+fastballcommand_final_agg <- rename(fastballcommand_final_agg, FC = FC_pred)
+fastballcommand_final_agg
+
+
+
+Creation of wFC+
+
+fastballcommand_final_agg <- mutate(fastballcommand_final_agg, 'wFC+' = (100*FC/mean(FC)))
+fastballcommand_final_agg
