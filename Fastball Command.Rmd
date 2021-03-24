@@ -295,3 +295,10 @@ fastballcommand_final_agg <- mutate(fastballcommand_final_agg, 'wFC+' = (100*FC/
 fastballcommand_final_agg
 ```
 
+```{r}
+command_full <- command_full %>% mutate(Strike = case_when(Strike == 1 ~ "Strike", Strike == 0 ~ "Ball"))
+
+  geom_rect(mapping = aes(ymax = 3.6, ymin = 1.6, xmax = -1.2, xmin = 1.2), alpha = 0, size=1, colour = "black") +
+  facet_wrap(~Strike) + theme(panel.background = element_blank(), axis.line = element_blank())
+```
+
