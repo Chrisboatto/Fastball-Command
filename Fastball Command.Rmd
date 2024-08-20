@@ -22,7 +22,6 @@ require("dplyr")
 require("ggplot2")
 require("randomForest")
 require("pROC")
-require("devtools")
 require("corrplot")
 require("caret")
 library(readxl)
@@ -30,9 +29,6 @@ library(dplyr)
 library(ggplot2)
 library(randomForest)
 library(pROC)
-library(devtools)
-devtools::install_github('skinner927/reprtree')
-library(reprtree)
 library(corrplot)
 library(caret)
 ```
@@ -260,16 +256,6 @@ ggplot(commandImp_tuned, aes(IncNodePurity, row.names(commandImp_tuned))) +
   labs(title = "Fastball Command Variable Importance Tuned", x = "Importance", y = "Variable")
 ```
 
-# The decision tree below is based off of the created reprtree package created by skinner927 Github profile. To import this package into R you will need to use the devtools package. Reprtree allows a data analyst to create a decision tree from the random forest model he creates. 
-
-# The tree below is a depiction of the 100th tree in the "command_tuned_model". It shows the flow in which how the model made its decision to determine the predictive score of a strike. The model makes a binary decision at each node or parameter, "Yes" or "No", which then leads to another and another until you reach a final predictive score grouping at the bottom. 
-
-# I had previously commented on the maxnodes parameter being important due to clarity in this tree. Setting the maxnodes parameter to eight will create a depiction of eight result groupings. This allows for the tree to be much easier to read and understand. Without doing so this tree would have been extremely cluttered, with every outcome as a result.  You can chose any tree from your model to depict. Each tree will be slightly different. Therefore, choosing a different tree will result in different results. 
-
-```{r}
-reprtree:::plot.getTree(command_tuned_model, k = 50)
-```
-
 # I selected the two attributes from command_full that I would need to solve the problem of which pitcher commanded his fsatball the best.
 
 ```{r}
@@ -298,7 +284,17 @@ fastballcommand_final_agg
 ```{r}
 command_full <- command_full %>% mutate(Strike = case_when(Strike == 1 ~ "Strike", Strike == 0 ~ "Ball"))
 
-  geom_rect(mapping = aes(ymax = 3.6, ymin = 1.6, xmax = -1.2, xmin = 1.2), alpha = 0, size=1, colour = "black") +
-  facet_wrap(~Strike) + theme(panel.background = element_blank(), axis.line = element_blank())
+geom_rect(mapping = aes(ymax = 3.6, ymin = 1.6, xmax = -1.2, xmin = 1.2), alpha = 0, size=1, colour = "black") +
+facet_wrap(~Strike) + theme(panel.background = element_blank(), axis.line = element_blank())
+
+# Create a ggplot object
+p <- ggplot(data = command_full, aes(x = PlateLocHeight, y = PlateLocSide)) +
+  geom_point()  # Add other layers as needed
+
+# Add geom_rect layer
+p + geom_rect(mapping = aes(ymax = 3.6, ymin = 1.6, xmax = -1.2, xmin = 1.2),
+              alpha = 0, size = 1, colour = "black") +
+  facet_wrap(~Strike)
+
 ```
 
